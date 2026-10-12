@@ -13,61 +13,24 @@ Generated inputs and outputs belong in `data/` and are ignored by Git.
 ## System design
 
 ```mermaid
-flowchart TB
-    subgraph INPUTS["1. Generate and freeze the experiment inputs"]
-        E["Sourced retailer evidence"] --> L["OpenAI Luna API<br/>Structured JSON generation"]
-        L --> B["Frozen shopper option bank<br/>Traits and shopping missions"]
-        L --> R["Frozen retailer descriptions<br/>Assortment, services and tradeoffs"]
-        B --> P["Seeded shopper profiles<br/>Mission, preferences, budget and time"]
-        O["Authorized product observations<br/>Prices, sizes and availability evidence"] --> C["SQLite merchandise snapshot"]
-    end
-
-    P --> PREP
-    R --> PREP
-    C --> PREP
-    PREP["Prepare paired scenarios<br/>Baseline / HoS / FastBreak / both<br/>Same shoppers, offers and prices"]
-    PREP --> W
-
-    subgraph SESSION["2. Run each shopping session with local concurrent workers"]
-        W["Independent shopping world<br/>Physical or e-commerce occasion"] --> CTX
-        CTX["Decision context and legal actions<br/>Profile, retailer, discovered products,<br/>basket, time and recent history"] --> J
-        J["Jev policy<br/>Probabilities over allowed next actions"] --> DRAW
-        DRAW["Seeded action draw"] --> EXEC
-        EXEC["Execute action and enforce constraints<br/>Visit, browse, check, try, add,<br/>switch, checkout or leave"] --> DONE
-        DONE -->|No| MEM["Updated session memory<br/>Basket, remaining time,<br/>revealed fit and availability"]
-        MEM --> CTX
-        DONE{"Purchase, exit<br/>or action cap?"} -->|Yes| TRACE
-        J -.-> CACHE["Saved API request / response cache"]
-    end
-
-    subgraph OUTPUTS["3. Replay and compare paired outcomes"]
-        TRACE["Episode traces<br/>Context-linked actions, probabilities,<br/>random draws and outcomes"] --> A
-        CACHE --> REPLAY["Offline replay<br/>Recompute and compare saved episodes"]
-        PREP --> REPLAY
-        TRACE --> REPLAY
-        A["Paired analysis by scenario and channel<br/>Entrants, buyers, conversion, ticket,<br/>revenue per occasion and paired differences"]
-    end
-
-    classDef input fill:#eef5f1,stroke:#216347,color:#173e2c;
+flowchart LR
+    I["Frozen inputs<br/>Luna profiles + catalog"] --> W["Paired shopping worlds<br/>Baseline / HoS / FastBreak / both"]
+    W --> J["Jev<br/>Legal-action probabilities"]
+    J --> S["Seeded action<br/>Update basket, time and memory"]
+    S -->|Next decision| J
+    S -->|Session ends| O["Traces + API cache<br/>Replay and paired analysis"]
+    classDef inputs fill:#eef5f1,stroke:#216347,color:#173e2c;
     classDef model fill:#eaf0fb,stroke:#4266a6,color:#19385f;
-    classDef output fill:#fff4df,stroke:#b28230,color:#674817;
-    class E,B,R,P,O,C,PREP input;
-    class L,J model;
-    class TRACE,CACHE,REPLAY,A output;
+    classDef outputs fill:#fff4df,stroke:#b28230,color:#674817;
+    class I,W inputs;
+    class J,S model;
+    class O outputs;
 ```
 
-**Luna generates the reusable inputs; Jev evaluates the next decision.** A shopper makes
-successive choices within a stateful world, rather than completing a single survey prompt.
-The simulator samples an action from Jev's probabilities, applies its consequences, and
-supplies the updated context on the next step. The memory loop stops at purchase, exit, or
-the action cap. If only one action is legal, the policy skips the API call.
-
-Preparation freezes the inputs and records source hashes. Session workers have separate
-world state, while paired scenarios share seeded draws to support comparisons. Generated
-inputs, request caches, traces, and analysis remain in the ignored `data/` folder.
-Offline replay checks execution consistency; real-world validation requires independent
-observed shopper or store data. The outputs describe synthetic shopping occasions, not
-annual revenue forecasts.
+Luna generates shopper options and evidence-grounded retailer descriptions; merchandise comes
+from supplied observations. Each shopper makes sequential decisions until purchase, exit, or
+the action cap. Frozen inputs and cached responses support replay. Analysis compares entry,
+conversion, ticket and revenue per occasion; real-world validity requires independent data.
 
 ## Setup
 
