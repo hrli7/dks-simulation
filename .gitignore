@@ -1,0 +1,28 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+# All generated/private inputs, caches, cohorts, traces, and results
+data/*
+!data/README.md
+results/
+runs/
+*.sqlite*
+*.db
+*.log
+*.html
+# Local environments and build artifacts
+.venv/
+*venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.pytest_cache/
+.DS_Store
+build/
+dist/
+*.egg-info/
